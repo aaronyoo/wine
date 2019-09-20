@@ -34,14 +34,12 @@ void print_serial_unsigned_decimal(uint32_t n) {
     serial_port::print(s);
 }
 
-} // namespace logger
-
-void logger::init() {
+void init() {
     // Logger uses the COM1 serial port
     serial_port::init(COM1_BASE);
 }
 
-void logger::msg_info(const char* format, ...) {
+void msg_info(const char* format, ...) {
     va_list args;
     va_start(args, format);
 
@@ -79,3 +77,14 @@ void logger::msg_info(const char* format, ...) {
     va_end(args);
     serial_port::putc('\n');
 }
+
+void panic(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    msg_info(format, args);
+    va_end(args);
+
+    while (1); // hang
+}
+
+} // namespace logger

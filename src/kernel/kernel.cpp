@@ -1,4 +1,5 @@
 #include "logger/logger.hpp"
+#include "memory/memory.hpp"
 #include "system/gdt.hpp"
 #include "system/pic.hpp"
 #include "system/idt.hpp"
@@ -51,7 +52,7 @@ extern "C" void main(multiboot_info_t* minfo, uint32_t magic) {
     logger::init();
     kernel::system_setup(minfo, magic);
 
-
+    memory::init();
 
     __asm__ volatile("sti");
 
