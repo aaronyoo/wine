@@ -24,7 +24,7 @@ idt_flush:
    ret
 
 
-global load_page_directory
+global load_page_dir
 load_page_dir:
    mov eax, [esp+4]
    mov cr3, eax
@@ -32,5 +32,15 @@ load_page_dir:
 
 global get_curr_page_dir
 get_curr_page_dir:
+   mov eax, cr3
+   ret
+
+global get_cr2
+get_cr2:
+   mov eax, cr2
+   ret
+
+global get_cr3
+get_cr3:
    mov eax, cr3
    ret

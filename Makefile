@@ -16,6 +16,9 @@ mon: build
 debug: build
 	qemu-system-i386 -m 4G -s -S -monitor stdio -kernel $(BUILD_DIR)/kernel.bin
 
+debug-no-mon: build
+	qemu-system-i386 -m 4G -s -S -serial stdio -kernel $(BUILD_DIR)/kernel.bin
+
 build: asm_stubs linker.ld
 	i386-elf-g++ -std=c++14 -g -I $(INCLUDE_DIRS) $(CPP_SOURCES) -T linker.ld $(BUILD_DIR)/*.o -o $(BUILD_DIR)/kernel.bin -nostdlib -ffreestanding
 

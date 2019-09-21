@@ -15,6 +15,8 @@ const uint32_t UINT8_BITS = 8;
 const uint32_t MEM_PHYS_KERNEL_START = 0x00100000;
 const uint32_t MEM_PHYS_KERNEL_END = 0x00400000;
 
+const uint32_t MEM_PHYS_KERNEL_BASE = 0xC0000000;
+
 // ~250 Mb for the page frame and page table area, this can be expanded later if
 // needed
 const uint32_t MEM_PHYS_PAGE_TABLE_RESERVED_AREA_START = 0x00400000;

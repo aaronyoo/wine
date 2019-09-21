@@ -23,3 +23,24 @@ void* memset(void* bufptr, int value, size_t size) {
 		buf[i] = (unsigned char) value;
 	return bufptr;
 }
+
+int memcmp(const void* s1, const void* s2, size_t n)
+{
+    const unsigned char *p1 = (const unsigned char*) s1, *p2 = (const unsigned char*) s2;
+    while(n--)
+        if( *p1 != *p2 )
+            return *p1 - *p2;
+        else
+            p1++,p2++;
+    return 0;
+}
+
+void *
+memcpy (void *dest, const void *src, size_t len)
+{
+  char *d = (char *) dest;
+  const char *s = (const char *) src;
+  while (len--)
+    *d++ = *s++;
+  return dest;
+}

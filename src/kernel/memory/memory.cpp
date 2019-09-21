@@ -3,16 +3,35 @@
 #include "system/isr.hpp"
 #include "lib/cstring.hpp"
 
-namespace memory {
 
-// A page table to bootstrap the mapping of the page table reserved pages
-uint32_t ptr_page_table[1024] __attribute__((aligned(PAGE_SIZE)));
+namespace memory {
 
 extern "C" void load_page_dir(uint32_t);
 extern "C" void enable_paging();
-extern "C" uint32_t* get_curr_page_dir();
+extern "C" void load_page_dir(uint32_t);
+extern "C" uint32_t get_cr3();
 
 uint32_t* page_table_alloc();
+uint32_t reserve_physical_frame();
+
+/**
+ * Only valid after the recursive page mappings have been initialized.
+ */ 
+uint32_t* get_curr_page_dir() {
+    return (uint32_t*) 0xFFFFF000;
+}
+
+/**
+ * Returns the virtual address of page table that exists at
+ * page_directory[page_directory_index]. Note that this address is not
+ * guarenteed to be mapped. It is the caller's responsibility to ensure that
+ * this address actually has a page table and is mapped into memory.
+ */
+uint32_t* get_page_table_virt(uint32_t page_directory_index) {
+    uint32_t ret = 0xFFC00000;  // Use the recursive mapping
+    ret |= page_directory_index << 12;
+    return (uint32_t*) ret;
+}
 
 void page_fault_handler(context* context) {
     logger::panic("[PANIC] Page fault");
@@ -30,28 +49,32 @@ void set_present(uint32_t* entry) { (*entry) |= (1 << 0); }
 void set_read_write(uint32_t* entry) { (*entry) |= (1 << 1); }
 void unset_present(uint32_t* entry) { (*entry) &= ~(1 << 0); }
 
+uint32_t get_physical_address(uint32_t virtual_address) {
+    uint32_t page_directory_index = virtual_address >> 22;
+    uint32_t page_table_index = virtual_address >> 12 & 0x03FF;
+    return 0;
+    // TODO: finish this
+}
+
 void map_page(uint32_t* page_directory, uint32_t virtual_address, uint32_t physical_address) {
     if (!is_page_aligned(virtual_address) || !is_page_aligned(physical_address)) {
         logger::panic("Trying to map addresses that are not page aligned!");
     }
 
     uint32_t page_directory_index = virtual_address >> 22;
-    uint32_t page_directory_entry = *(page_directory + page_directory_index);
+    uint32_t page_directory_entry = page_directory[page_directory_index];
 
     if (!is_present(page_directory_entry)) {
         // Page table is not present so we need to grab a new page table and put
         // it into the correct spot
-        logger::msg_info("Page table not present for virtual address %x", virtual_address);
-        logger::msg_info("Adding a new page table at index: %x", page_directory_index);
-
-        uint32_t* new_page_table = page_table_alloc();
-        logger::msg_info("New page table located at virtual address: %x", new_page_table);
-        set_present((uint32_t*) &new_page_table);
-        set_read_write((uint32_t*) &new_page_table);
-        *(page_directory + page_directory_index) = (uint32_t) new_page_table;
+        uint32_t new_page_table_phys = reserve_physical_frame();
+        set_present(&new_page_table_phys);
+        set_read_write(&new_page_table_phys);
+        page_directory[page_directory_index] = new_page_table_phys;
     }
 
-    uint32_t* page_table = get_page_table_address(page_directory_entry);
+    // Use the recursive page mapping to get the virtual address of the page table
+    uint32_t* page_table = get_page_table_virt(page_directory_index);
     uint32_t page_table_index = get_page_table_index(virtual_address);
 
     // if (is_present(page_table[page_table_index])) {
@@ -65,6 +88,8 @@ void map_page(uint32_t* page_directory, uint32_t virtual_address, uint32_t physi
 }
 
 void unmap_page(uint32_t* page_directory, uint32_t virtual_address) {
+    uint32_t test = (uint32_t) page_directory;
+
     // Check that the virtual address is page aligned
     if (!is_page_aligned(virtual_address)) {
         logger::panic("Trying to unmap a virtual address that is not page aligned!");
@@ -100,9 +125,26 @@ void unmap_page(uint32_t* page_directory, uint32_t virtual_address) {
  * since we are already in the higher half.
  */
 void unmap_bootstrap_mappings() {
-    for (int i = 0; i < MEM_VIRT_KERNEL_END; i += PAGE_SIZE) {
-        unmap_page(get_curr_page_dir(), i);
+    for (int i = 0; i < MEM_PHYS_KERNEL_END; i += PAGE_SIZE) {
+        unmap_page((uint32_t*) get_curr_page_dir(), i);
     }
+}
+
+/**
+ * Setup a recursive mapping in the page directory. This scheme is known as
+ * recursive (or fractal) page mapping. By mapping the last entry of the page
+ * directory to itself we can map certain high virtual addresses to the page
+ * tables so that we can actually access them and change them without knowing
+ * their virtual addresses beforehand.
+ */ 
+void setup_recursive_mapping() {
+    // Cannot use get_cur_dir() because that assumes that recursive mappings have already been initialized.
+    uint32_t* page_directory_virt = (uint32_t*) (get_cr3() + MEM_PHYS_KERNEL_BASE);
+
+    uint32_t page_directory_phys = get_cr3();
+    set_present(&page_directory_phys);
+    set_read_write(&page_directory_phys);
+    page_directory_virt[1024 - 1] = page_directory_phys;
 }
 
 //=============================================================================
@@ -125,12 +167,12 @@ void init_page_frame_allocator() {
     memset(page_frame_allocator_bitmap, 0, sizeof(page_frame_allocator_bitmap));
 }
 
-uint32_t* page_frame_alloc(uint32_t virtual_address) {
-    // Make sure the address is page aligned
-    if (virtual_address % PAGE_SIZE != 0) {
-        logger::panic("Trying to allocate a page fram at unaligned address!");
-    }
-
+/**
+ * Reserves a page frame in physical memory by consulting the page frame
+ * allocator bitmap. Returns the physical address of the reserved frame. Mapping
+ * this frame into memory is the responsibility of the caller.
+ */
+uint32_t reserve_physical_frame() {
     // Find a free page using the page_frame_bitmap.
     int32_t page_index = -1;
     for (int i = 0; i < sizeof(page_frame_allocator_bitmap); i++) {
@@ -155,103 +197,69 @@ uint32_t* page_frame_alloc(uint32_t virtual_address) {
 
     // Calculate the physical address and map it into memory
     uint32_t physical_address = MEM_PHYS_PAGE_FRAME_AREA_START + (PAGE_SIZE * page_index);
+    return physical_address;
+}
+
+uint32_t* page_frame_alloc(uint32_t virtual_address) {
+    // Make sure the address is page aligned
+    if (virtual_address % PAGE_SIZE != 0) {
+        logger::panic("Trying to allocate a page fram at unaligned address!");
+    }
+
+    uint32_t physical_address = reserve_physical_frame();
     map_page(get_curr_page_dir(), virtual_address, physical_address);
 
     return (uint32_t*) virtual_address;
 }
 
 //=============================================================================
-// Page Table Allocator
+// Heap Allocator
 //=============================================================================
 
-// Calculate the correct sized bitmap for the page table allocator. Each bit
-// represents one page.
-const uint32_t PAGE_TABLE_ALLOCATOR_BITMAP_SIZE = (MEM_PHYS_PAGE_TABLE_RESERVED_AREA_END - MEM_PHYS_PAGE_TABLE_RESERVED_AREA_START) / PAGE_SIZE;
-uint8_t page_table_allocator_bitmap[PAGE_TABLE_ALLOCATOR_BITMAP_SIZE];
+// Both the current location of the top of the heap and the mapped pointer
+// should start at the same location since nothing has been allocated yet.
+uint32_t heap_mapped = MEM_VIRT_KHEAP_START;
+uint32_t heap_current = MEM_VIRT_KHEAP_START;
 
-/**
- * Map the page table reserved area at a known offset. This is important because
- * otherwise we may deadlock trying to allocate a page frame. The reason for
- * this deadlock is that a page frame allocation request may need to also
- * allocate a page table. However, if we don't pre-map the page tables then we
- * can have a situation in which we try to allocate a page but need a page table
- * but allocating that page table requires allocating a page.
- */
-void init_page_table_allocator() {
-    uint32_t test = (uint32_t) get_curr_page_dir(); 
-
-    // Check that the constants in the memory map are sane for the page table
-    // allocator. The size of physical memory must be the same as the size of
-    // virtual memory and all of the constants must be page aligned.
-    if (!is_page_aligned(MEM_PHYS_PAGE_TABLE_RESERVED_AREA_END) ||
-        !is_page_aligned(MEM_PHYS_PAGE_TABLE_RESERVED_AREA_START) ||
-        !is_page_aligned(MEM_VIRT_PAGE_TABLE_RESERVED_AREA_END) ||
-        !is_page_aligned(MEM_VIRT_PAGE_TABLE_RESERVED_AREA_START))
-    {
-        logger::panic("The page table reserved area is not page aligned!");
-    }
-    uint32_t physical_size = MEM_PHYS_PAGE_TABLE_RESERVED_AREA_END - MEM_PHYS_PAGE_TABLE_RESERVED_AREA_START;
-    uint32_t virtual_size = MEM_VIRT_PAGE_TABLE_RESERVED_AREA_END - MEM_VIRT_PAGE_TABLE_RESERVED_AREA_START;
-    if (physical_size != virtual_size) {
-        logger::panic("The page table reserved area is an incompatible size!");
-    }
-
-    // Do a little bit of magic here to make things work. We need to put the
-    // static page table into the page directory at the correct address to map
-    // in all of our reserved page tables. A simple chicken and egg problem
-    // because we may (will) need to allocate a page table in order to map the
-    // memory that will contain the reserved page table. To get around this we
-    // use a single static page table. As long as the arena for reserved page
-    // tables stays under 4Mib we are okay. Otherwise we will need to repeat
-    // this action with a second static page table.
-    uint32_t page_directory_index = MEM_VIRT_PAGE_TABLE_RESERVED_AREA_START >> 22;
-    uint32_t page_directory_entry = *(get_curr_page_dir() + page_directory_index);
-    uint32_t* new_page_table = ptr_page_table;
-    set_present((uint32_t*) &new_page_table);
-    set_read_write((uint32_t*) &new_page_table);
-    *(get_curr_page_dir() + page_directory_index) = (uint32_t) new_page_table;
-
-    // Map the physical reserved area into the virtual reserved area
-    for (int i = 0; i < virtual_size; i += PAGE_SIZE) {
-        map_page(get_curr_page_dir(), MEM_VIRT_PAGE_TABLE_RESERVED_AREA_START + i, MEM_PHYS_PAGE_TABLE_RESERVED_AREA_START + i);
+void init_heap_allocator() {
+    // Ensure the heap allocator is page aligned
+    if (!is_page_aligned(MEM_VIRT_KHEAP_START) || !is_page_aligned(MEM_VIRT_KHEAP_END)) {
+        logger::panic("The heap allocator is not page aligned!");
     }
 }
 
-uint32_t* page_table_alloc() {
-    // Find a free page using the page table bitmap
-    int32_t index = -1;
-    for (int i = 0; i < sizeof(page_table_allocator_bitmap); i++) {
-        if (page_table_allocator_bitmap[i] != UINT8_MAX) {
-            // There is an available space so scan the bits
-            for (int j = 0; j < UINT8_BITS; i++) {
-                if (!(page_table_allocator_bitmap[i] & (1 << j))) {
-                    // We can allocate since the current bit is set to zero
-                    index = i * UINT8_BITS + j;
-                    page_table_allocator_bitmap[i] |= (1 << j);
-                    break;
-                }
-            }
-            break;
-        }
+#define heap_allocate(a) halloc(a)
+void* halloc(size_t size) {
+    logger::msg_info("Heap allocation of size %u bytes at address %x", size, heap_current);
+    // Check that the heap does not overflow
+    if (heap_current + size > MEM_VIRT_KHEAP_END) {
+        logger::panic("Heap is overflowing! Cannot allocate!");
     }
 
-    if (index == -1) {
-        // There are no free page tables left
-        logger::panic("Trying to allocate page table but no page tables left to allocate!");
+    // Allocate new pages for the heap lazily when the current point passes the
+    // furthest mapped address
+    while(heap_current + size > heap_mapped) {
+        page_frame_alloc(heap_mapped);
+        heap_mapped += PAGE_SIZE;
     }
 
-    // Since we know that the entire page table reserved region is already
-    // mapped we can just return the virtual address without checking whether or
-    // not it is valid (we assume that it is).
-    const uint32_t virtual_address = MEM_VIRT_PAGE_TABLE_RESERVED_AREA_START + (PAGE_SIZE * index);
-    return (uint32_t*) virtual_address;
+    // Clear the memory before allocating
+    memset((void*) heap_current, 0, size);
+
+    uint32_t ret = heap_current;
+    heap_current += size;
+    return (void*) ret;
 }
-
 
 void init() {
+    setup_recursive_mapping();
     unmap_bootstrap_mappings();
-    init_page_frame_allocator();
-    init_page_table_allocator();
+    init_heap_allocator();
+
+    halloc(256);
+    halloc(16);
+    halloc(16);
+    halloc(16);
 }
 
 } // namespace memory

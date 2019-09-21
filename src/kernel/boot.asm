@@ -24,6 +24,8 @@ boot_page_directory:
     resb 4096
 boot_page_table1:
     resb 4096
+boot_page_table2:
+    resb 4096
 kernel_stack_bottom: equ $          ; Create a 16KB stack for the kernel
 	resb 16384 ; 16 KB
 kernel_stack_top:
@@ -59,14 +61,29 @@ L1:
     jmp L1
 
 end:
-    ; Load the same page table into the base and higher half. We can use the same
-    ; page table since we will remove the lower mapping soon. Note, this means we
-    ; MUST remove the lower mapping before we do anything else. Otherwise we may
-    ; have integrity problems because of the fact that two entries in the page
-    ; directory point to the same page table.
+
+    ; Now we need to copy the contents of boot_page_table1 into boot_page_table2
+    ; so that we can have two identical mappings (one in the lower half and one in
+    ; the upper half). It is very important to make a copy and not simply use a
+    ; pointer here. If we use a pointer, we run into a situation later in
+    ; which unmapping the lower kernel results in umapping the upper kernel as
+    ; well.
+    mov esi, boot_page_table1 - KERNEL_VIRT_BASE
+    mov edi, boot_page_table2 - KERNEL_VIRT_BASE
+    mov ecx, 4096
+L2:
+    mov dl, [esi]
+    mov [edi], dl
+    inc esi
+    inc edi
+    loop L2
+
+    ; Put the page tables into the boot_page_directory. Even though they have
+    ; the same contents we are using separate page tables for the lower mapped and
+    ; upper mapped kernel.
     mov DWORD[boot_page_directory - KERNEL_VIRT_BASE + 0], boot_page_table1 - KERNEL_VIRT_BASE + 3
-    mov DWORD[boot_page_directory - KERNEL_VIRT_BASE + 768 * 4], boot_page_table1 - KERNEL_VIRT_BASE + 3
-    
+    mov DWORD[boot_page_directory - KERNEL_VIRT_BASE + 768 * 4], boot_page_table2 - KERNEL_VIRT_BASE + 3
+
     mov ecx, (boot_page_directory - KERNEL_VIRT_BASE)
     mov cr3, ecx    ; Initialize the page directory base
 
@@ -79,6 +96,10 @@ end:
     jmp ecx
 
 higher_half:
+    ; Now we are in the higher half. Reload CR3 using higher half page directory
+    mov ecx, (boot_page_directory - KERNEL_VIRT_BASE)
+    mov cr3, ecx
+
     mov esp, kernel_stack_top       ; Set up the stack
     push eax;                       ; Push multiboot magic
     push ebx;                       ; Push multiboot header

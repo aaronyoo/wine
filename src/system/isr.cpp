@@ -4,10 +4,17 @@
 
 isr_t interrupt_handlers[256];
 
+extern "C" uint32_t get_cr2();
+
 namespace isr {
 
 extern "C" void isr_handler(context_t* context) {
     logger::msg_info("Received interrupt: %u\n", context->int_no);
+
+    if (context->int_no == 14) {
+        uint32_t cr2 = get_cr2();
+        logger::msg_info("Page Fault from Address: %x", cr2);
+    }
 
     if (interrupt_handlers[context->int_no] != 0) {
         isr_t handler = interrupt_handlers[context->int_no];
