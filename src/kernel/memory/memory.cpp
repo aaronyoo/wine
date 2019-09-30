@@ -251,6 +251,11 @@ void* halloc(size_t size) {
     return (void*) ret;
 }
 
+void free(void* m) {
+    // Don't need it yet ;)
+    return;
+}
+
 void init() {
     setup_recursive_mapping();
     unmap_bootstrap_mappings();

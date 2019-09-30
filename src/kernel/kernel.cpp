@@ -3,6 +3,7 @@
 #include "system/gdt.hpp"
 #include "system/pic.hpp"
 #include "system/idt.hpp"
+#include "common/common.hpp"
 #include "multiboot.hpp"
 
 namespace kernel {
@@ -49,9 +50,13 @@ void system_setup(multiboot_info_t* minfo, uint32_t magic) {
 }
 
 extern "C" void main(multiboot_info_t* minfo, uint32_t magic) {
+    // Initialize logger first to provide the ability to generate debug output
+    // for the rest of execution
     logger::init();
+
     kernel::system_setup(minfo, magic);
 
+    // Initialize memory ASAP so that other modules can use new() and free()
     memory::init();
 
     __asm__ volatile("sti");

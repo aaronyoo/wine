@@ -2,6 +2,7 @@
 #define MEMORY_HPP
 
 #include <stdint.h>
+#include <stddef.h>
 
 namespace memory {
 
@@ -45,6 +46,8 @@ const uint32_t MEM_VIRT_KHEAP_END = 0xC9000000;
 // typedef uint32_t* page_dir_t;
 
 void init();
+void* halloc(size_t size);
+void free(void* m);
 
 } // namespace memory
 
