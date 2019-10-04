@@ -1,0 +1,17 @@
+{
+    "files.associations": {
+        "__config": "cpp",
+        "__debug": "cpp",
+        "__nullptr": "cpp",
+        "__tuple": "cpp",
+        "algorithm": "cpp",
+        "__memory": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "iterator": "cpp",
+        "limits": "cpp",
+        "list": "cpp",
+        "memory": "cpp",
+        "new": "cpp"
+    }
+}

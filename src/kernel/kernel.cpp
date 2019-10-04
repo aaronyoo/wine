@@ -1,10 +1,11 @@
-#include "logger/logger.hpp"
-#include "memory/memory.hpp"
+#include "kernel/logger/logger.hpp"
+#include "kernel/memory/memory.hpp"
 #include "system/gdt.hpp"
 #include "system/pic.hpp"
 #include "system/idt.hpp"
-#include "common/common.hpp"
-#include "multiboot.hpp"
+#include "lib/common/common.hpp"
+#include "kernel/multiboot.hpp"
+#include "kernel/tasking/tasking.hpp"
 
 namespace kernel {
 
@@ -57,7 +58,10 @@ extern "C" void main(multiboot_info_t* minfo, uint32_t magic) {
     kernel::system_setup(minfo, magic);
 
     // Initialize memory ASAP so that other modules can use new() and free()
+    // After this call, all modules can use a user implemented new() and free()
     memory::init();
+
+    tasking::init();
 
     __asm__ volatile("sti");
 

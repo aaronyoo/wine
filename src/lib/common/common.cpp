@@ -1,7 +1,7 @@
 #include "common.hpp"
 #include <stddef.h>
-#include "../memory/memory.hpp"
-#include "../logger/logger.hpp"
+#include "kernel/memory/memory.hpp"
+#include "kernel/logger/logger.hpp"
 
 void* operator new(size_t size) {
     void* m = memory::halloc(size);
