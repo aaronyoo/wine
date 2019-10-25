@@ -3,6 +3,9 @@
 
 #include <kernel/logger/logger.hpp>
 
+//===================
+// ListNode
+//===================
 template <typename T>
 class ListNode {
 public:
@@ -13,45 +16,24 @@ public:
     ListNode<T>* next;
 };
 
+//===================
+// ListIterator
+//===================
 template <typename T>
 class ListIterator {
 public:
     ListIterator() : curr(nullptr) {}
-    ListIterator(ListNode<T> &e) : curr(e) {}
+    ListIterator(ListNode<T> &e) : curr(&e) {}
 
     ListIterator<T>& operator++();
     ListIterator<T> operator++(int);
     T& operator*();
     T* operator->();
     bool operator!=(const ListIterator<T> &rhs);
+    ListNode<T>* get_curr() { return curr; }
 
 private:
     ListNode<T>* curr;
-};
-
-template <typename T>
-class List {
-public:
-    List() : head(nullptr), tail(nullptr), size_(0) {}
-
-    ListNode<T>* insert(ListIterator<T> pos,  const T& value);
-    ListNode<T>* append(const T& value) {
-        return insert(this->end(), value);
-    }
-
-    ListIterator<T> begin() { return ListIterator<T>(*tail); }
-    ListIterator<T> end() { return ListIterator<T>(); }
-    int size() { return size_; }
-    void print() {
-        for (auto it = this->begin(); it != this->end(); it++) {
-            logger::msg_info(*it);
-        }
-    }
-
-private:
-    ListNode<T>* head;
-    ListNode<T>* tail;
-    int size_;    
 };
 
 template <typename T>
@@ -63,9 +45,7 @@ ListIterator<T>& ListIterator<T>::operator++() {
 
 template <typename T>
 ListIterator<T> ListIterator<T>::operator++(int n) {
-    if (curr != nullptr) {
-        curr = curr->next;
-    }
+    curr = curr->next;
 }
 
 template <typename T>
@@ -83,17 +63,46 @@ bool ListIterator<T>::operator!=(const ListIterator<T> &rhs) {
     return this->curr != rhs.curr;
 }
 
+//===================
+// List
+//===================
+template <typename T>
+class List {
+public:
+    // Constructors
+    List() : head(nullptr), tail(nullptr), size_(0) {}
+
+    // Externally defined functions
+    ListNode<T>* insert(ListIterator<T> pos,  const T& value);
+    ListNode<T>* append(const T& value);
+
+    // Internally defined functions
+    ListIterator<T> begin() { return ListIterator<T>(*head); }
+    ListIterator<T> end() { return ListIterator<T>(); }
+    int size() { return size_; }
+
+private:
+    ListNode<T>* head;
+    ListNode<T>* tail;
+    int size_;    
+};
+
+template <typename T>
+ListNode<T>* List<T>::append(const T& value) {
+    insert(this->end(), value);
+}
+
 template <typename T>
 ListNode<T>* List<T>::insert(ListIterator<T> pos,  const T& value) {
     ListNode<T> *n = new ListNode<T>(value);
     size_++;
 
-    n->next = pos->curr;
+    n->next = pos.get_curr();
     n->data = value;
     
-    if (pos) {
-        n->prev = pos->prev;
-        pos->prev = n;
+    if (pos != this->end()) {
+        n->prev = pos.get_curr()->prev;
+        pos.get_curr()->prev = n;
     } else {
         // pos is at the end of the list
         n->prev = tail;
