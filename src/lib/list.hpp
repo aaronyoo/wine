@@ -41,11 +41,13 @@ ListIterator<T>& ListIterator<T>::operator++() {
     if (curr != nullptr) {
         curr = curr->next;
     }
+    return curr;
 }
 
 template <typename T>
 ListIterator<T> ListIterator<T>::operator++(int n) {
     curr = curr->next;
+    return curr;
 }
 
 template <typename T>
@@ -75,6 +77,7 @@ public:
     // Externally defined functions
     ListNode<T>* insert(ListIterator<T> pos,  const T& value);
     ListNode<T>* append(const T& value);
+    T dequeue();
 
     // Internally defined functions
     ListIterator<T> begin() { return ListIterator<T>(*head); }
@@ -89,7 +92,7 @@ private:
 
 template <typename T>
 ListNode<T>* List<T>::append(const T& value) {
-    insert(this->end(), value);
+    return insert(this->end(), value);
 }
 
 template <typename T>
@@ -117,6 +120,25 @@ ListNode<T>* List<T>::insert(ListIterator<T> pos,  const T& value) {
     }
 
     return n;
+}
+
+// Takes an element from the front of the list
+template <typename T>
+T List<T>::dequeue() {
+    size_--;
+    T ret = head->data;
+    ListNode<T>* old = head;
+
+    if (head->next != nullptr) {
+        // If the list has other elements remove the back pointer from the new
+        // first element.
+        head->next->prev = nullptr;
+    }
+    head = head->next;
+
+    memory::free(old);  // free the listnode
+
+    return ret;
 }
 
 #endif // LIST_HPP

@@ -44,3 +44,43 @@ global get_cr3
 get_cr3:
    mov eax, cr3
    ret
+
+extern previous_task
+global switch_to_task_stub
+; Switch tasks:
+; Old task is in previous_task and new task is at [ebp+8] (first arg)
+switch_to_task_stub:
+   ; save registers for the old task
+   push ebx
+   push esi
+   push edi
+   push ebp
+
+   mov edi, [previous_task]  ; Move old task into edi
+   mov [edi+12], esp  ; kernel_stack_top = esp
+   
+   mov esi, [ebp+8]  ; load the new task
+   mov esp, [esi+12] ; reload the kernel_stack_top
+   mov eax, [esi+16] ; eax = new task page directory
+
+; TODO:
+; Don't worry about the new page directory stuff yet
+; There is a caveat because the value returned by get_cur_page_dir is the virtual
+; address of the page directory while the value in cr3 is the physical address
+;    mov ecx, 
+;    cmp eax, ecx      ; compare old and new page directories
+;    je .doneVAS
+;    mov cr3, eax      ; only change page directory if it is new
+
+; .doneVAS
+
+   pop ebp
+   pop edi
+   pop esi
+   pop ebx
+
+   ret   ; Load next task's EIP from its kernel stack
+         ; this means that the kernel stack must be bootstraped with
+         ; and instruction pointer.
+
+

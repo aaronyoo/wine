@@ -15,7 +15,12 @@ String::~String() {
 }
 
 String& String::operator=(const String& rhs) {
-    // TODO: it seems unclear if I should free the rhs
+    memory::free(value);
+    size = strlen(rhs.value);
+    value = (char*) memory::halloc(size);
+    memcpy(value, rhs.value, size);
+    // TODO: it seems unclear if I should free the rhs help me
+    return *this;
 }
 
 
