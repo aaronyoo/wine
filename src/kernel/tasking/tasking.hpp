@@ -11,7 +11,7 @@ namespace tasking {
 
 // Definitions for process states
 #define RUNNING 0
-#define READY_TO_RUN 1
+#define READY 1
 #define BLOCKED 2
 #define TERMINATED 3
 

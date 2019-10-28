@@ -75,6 +75,7 @@ public:
     // Externally defined functions
     ListNode<T>* insert(ListIterator<T> pos,  const T& value);
     ListNode<T>* append(const T& value);
+    T* dequeue();
 
     // Internally defined functions
     ListIterator<T> begin() { return ListIterator<T>(*head); }
@@ -117,6 +118,17 @@ ListNode<T>* List<T>::insert(ListIterator<T> pos,  const T& value) {
     }
 
     return n;
+}
+
+// Takes an element from the front of the list
+template <typename T>
+T* List<T>::dequeue() {
+    T* ret = &(head->data);
+
+    head->next->prev = nullptr;
+    head = head->next;
+
+    return ret;
 }
 
 #endif // LIST_HPP

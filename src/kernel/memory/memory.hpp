@@ -48,6 +48,7 @@ const uint32_t MEM_VIRT_KHEAP_END = 0xC9000000;
 void init();
 void* halloc(size_t size);
 void free(void* m);
+uint32_t* get_curr_page_dir();
 
 } // namespace memory
 
