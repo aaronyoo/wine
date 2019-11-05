@@ -46,7 +46,7 @@ void system_setup(multiboot_info_t* minfo, uint32_t magic) {
 
     // Check for the ramdisk module
     if (minfo->mods_count <= 0) {
-        logger::msg_info("Modules: None");
+        panic("No ramdisk module detected");
     }
 }
 

@@ -5,6 +5,7 @@
 #include <stdint.h>
 #include "kernel/memory/memory.hpp"
 #include "kernel/logger/logger.hpp"
+#include "lib/panic.hpp"
 
 void* operator new(size_t size);
 void operator delete(void* m);
