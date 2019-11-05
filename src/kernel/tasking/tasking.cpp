@@ -104,18 +104,18 @@ void task2() {
 void init() {
 
     current_task = create_kernel_task("kernel", NULL);
-    t1 = create_kernel_task("task1", task1);
-    t2 = create_kernel_task("task2", task2);
+    // t1 = create_kernel_task("task1", task1);
+    // t2 = create_kernel_task("task2", task2);
 
-    enqueue_task(t1, ready);
-    enqueue_task(t2, ready);
+    // enqueue_task(t1, ready);
+    // enqueue_task(t2, ready);
 
-    schedule(); // rotate away from the main kernel thread
-    int i = 3;
-    while(i--) {
-        logger::msg_info("kernelkernelkernelkernel");
-        schedule();
-    }
+    // schedule(); // rotate away from the main kernel thread
+    // int i = 3;
+    // while(i--) {
+    //     logger::msg_info("kernelkernelkernelkernel");
+    //     schedule();
+    // }
 }
 
 }  // namespace tasking

@@ -61,6 +61,7 @@ extern "C" void main(multiboot_info_t* minfo, uint32_t magic) {
     // After this call, all modules can use a user implemented new() and free()
     memory::init();
 
+    // Initialize tasking so that we can get process primitives
     tasking::init();
 
     __asm__ volatile("sti");
