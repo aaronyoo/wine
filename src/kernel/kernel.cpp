@@ -6,6 +6,7 @@
 #include "lib/common/common.hpp"
 #include "kernel/multiboot.hpp"
 #include "kernel/tasking/tasking.hpp"
+#include "kernel/filesystem/filesystem.hpp"
 
 namespace kernel {
 
@@ -61,8 +62,9 @@ extern "C" void main(multiboot_info_t* minfo, uint32_t magic) {
     // After this call, all modules can use a user implemented new() and free()
     memory::init();
 
-    // Initialize tasking so that we can get process primitives
     tasking::init();
+
+    filesystem::init(minfo);
 
     __asm__ volatile("sti");
 
